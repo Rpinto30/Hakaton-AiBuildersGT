@@ -1,3 +1,11 @@
-# Unica dependencia: lector de .xlsx implementado en Rust, elegido por
-# velocidad sobre openpyxl para procesar 4.3 millones de filas.
+# Ingesta: lector de .xlsx implementado en Rust, elegido por velocidad
+# sobre openpyxl para procesar 4.3 millones de filas.
 python-calamine==0.8.2
+
+# Carga a Postgres (scripts/load_csv.py). El extra [binary] trae la libpq
+# precompilada y evita tener que instalar Postgres para poder conectarse.
+psycopg[binary]==3.3.6
+
+# API (api/). uvicorn es el servidor: uvicorn api.main:app --reload
+fastapi==0.141.1
+uvicorn==0.53.0

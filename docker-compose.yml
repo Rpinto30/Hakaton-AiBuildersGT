@@ -1,5 +1,5 @@
 # Postgres 17 + PostGIS 3.5 para el proyecto Educación Formal 2024.
-# Las credenciales vienen de .env (ver .env.example); nunca se commitean.
+# Las credenciales vienen de .env (copia env.example); .env no se versiona.
 services:
   db:
     image: postgis/postgis:17-3.5
@@ -13,8 +13,9 @@ services:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Scripts SQL que corren UNA sola vez, al crear el volumen por primera vez.
-      - ./db/init:/docker-entrypoint-initdb.d:ro
+      # Los scripts de tablas/ NO se montan en /docker-entrypoint-initdb.d a
+      # propósito: la carga usa \copy, que lee el CSV desde el cliente y no
+      # desde el contenedor. El orden completo está en LEEME.md.
     shm_size: 256mb
     healthcheck:
       # -h 127.0.0.1 fuerza TCP: durante la inicialización el servidor temporal

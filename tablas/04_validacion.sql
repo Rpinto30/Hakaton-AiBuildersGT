@@ -52,6 +52,32 @@ SELECT ROUND(100.0 * SUM(promovidos)    / SUM(total), 1) AS pct_promovido,
        ROUND(100.0 * SUM(retirados)     / SUM(total), 1) AS pct_retirado
 FROM agg_departamento;
 
+\echo '--- Etiquetas reales de repitente y graduando ---'
+-- Si estas etiquetas no son exactamente las que filtra 03_agregados.sql, los
+-- conteos salen en cero sin lanzar ningún error. Se listan para poder mirarlas.
+SELECT 'repitente' AS columna, repitente AS etiqueta, count(*) AS filas
+FROM inscripciones GROUP BY repitente
+UNION ALL
+SELECT 'graduando', graduando, count(*)
+FROM inscripciones GROUP BY graduando
+ORDER BY columna, filas DESC;
+
+\echo '--- Repitencia y graduandos NO pueden ser cero (esperado ~8.3% y ~3.7%) ---'
+SELECT SUM(repitentes)                                      AS repitentes,
+       ROUND(100.0 * SUM(repitentes) / SUM(total), 1)       AS pct_repitencia,
+       SUM(graduandos)                                      AS graduandos,
+       ROUND(100.0 * SUM(graduandos) / SUM(total), 1)       AS pct_graduandos,
+       CASE WHEN SUM(repitentes) > 0 AND SUM(graduandos) > 0
+            THEN 'ok' ELSE 'MAL (revisa las etiquetas en 03_agregados.sql)' END AS estado
+FROM agg_departamento;
+
+\echo '--- Los agregados coinciden con la tabla base, no solo entre sí ---'
+SELECT (SELECT SUM(repitentes) FROM agg_departamento)                      AS agg_repitentes,
+       (SELECT count(*) FROM inscripciones WHERE repitente = 'Si')         AS base_repitentes,
+       CASE WHEN (SELECT SUM(repitentes) FROM agg_departamento)
+               = (SELECT count(*) FROM inscripciones WHERE repitente = 'Si')
+            THEN 'ok' ELSE 'MAL' END AS estado;
+
 \echo '--- Los agregados suman igual que la tabla base ---'
 SELECT (SELECT SUM(total) FROM agg_departamento) AS suma_agregados,
        (SELECT count(*)   FROM inscripciones)    AS filas_base,

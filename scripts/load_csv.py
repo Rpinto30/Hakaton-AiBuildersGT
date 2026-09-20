@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""Carga CSV de Educación Formal 2024 en Postgres con COPY y reconstruye los agregados.
+"""Carga inscripciones.csv en Postgres con COPY y reconstruye los agregados.
 
 Uso:
-    python scripts/load_csv.py data/*.csv
-    python scripts/load_csv.py --delimiter ";" data/educacion.csv
+    python scripts/load_csv.py datos/procesado/inscripciones.csv
 
-Requisitos de cada CSV: UTF-8, fila de encabezado y las 15 columnas del INE en su orden original.
-Es idempotente: vacía `educacion` y recarga todo en UNA transacción. Si algo falla
-(encabezado distinto, fila corrupta, agregados que no cuadran) no queda nada a medias.
+Automatiza el mismo camino que LEEME.md describe a mano. Espera el CSV que
+produce `python -m ingesta`: 20 columnas YA DECODIFICADAS (palabras, no códigos)
+y el municipio resuelto. No es el archivo crudo del INE.
+
+Antes de correrlo hay que crear el esquema:
+    \\i tablas/01_schema.sql
+    \\i tablas/03_agregados.sql
+
+Es idempotente: vacía `inscripciones` y recarga todo en UNA transacción. Si algo
+falla, se revierte y la base queda como estaba.
 """
 import argparse
 import csv
@@ -19,77 +25,111 @@ from pathlib import Path
 import psycopg
 from psycopg import sql
 
-# (encabezado en el CSV, columna en la tabla). COPY es posicional, así que esta lista es la
-# única fuente de verdad del orden: se usa para validar el encabezado y para armar el COPY.
+TABLA = "inscripciones"
+
+# COPY es posicional: esta lista es la única fuente de verdad del orden y debe
+# coincidir exactamente con ingesta/esquema.py:COLUMNAS_SALIDA.
 COLUMNAS = [
-    ("Año", "anio"),
-    ("CodEstablecimiento", "cod_establecimiento"),
-    ("Departamento_F", "departamento"),
-    ("Depto_mupio", "depto_mupio"),
-    ("Sector", "sector"),
-    ("Área", "area"),
-    ("Sexo", "sexo"),
-    ("Grado", "grado"),
-    ("Nivel", "nivel"),
-    ("Pueblo_Per", "pueblo"),
-    ("Plan_Est", "plan_estudios"),
-    ("Jornada_Est", "jornada"),
-    ("Resultado_F", "resultado"),
-    ("Repitente", "repitente"),
-    ("Graduando", "graduando"),
+    "anio",
+    "cod_establecimiento",
+    "cod_establecimiento_base",
+    "departamento_codigo",
+    "departamento",
+    "municipio_codigo",
+    "municipio",
+    "sector",
+    "area",
+    "sexo",
+    "nivel_codigo",
+    "nivel",
+    "grado_codigo",
+    "grado",
+    "pueblo_pertenencia",
+    "plan_estudio",
+    "jornada",
+    "resultado_final",
+    "repitente",
+    "graduando",
 ]
-TABLAS_AGREGADOS = ("agg_departamento", "agg_nivel", "agg_sector", "agg_area")
+
+TABLAS_AGREGADOS = ("agg_departamento", "agg_nivel", "agg_sector", "agg_area", "agg_municipio")
+
+TOTAL_ESPERADO = 4_298_887
+MUNICIPIOS_GUATEMALA_ESPERADOS = 17
 BLOQUE = 1 << 20  # 1 MiB por escritura al stream de COPY
 
 
 def _normalizar(columnas: list[str]) -> list[str]:
-    # NFC evita falsos negativos si "Año"/"Área" vienen con la tilde descompuesta.
+    """NFC evita falsos negativos si alguna tilde viene descompuesta."""
     return [unicodedata.normalize("NFC", c.strip()) for c in columnas]
 
 
 def validar_encabezado(ruta: Path, delimitador: str) -> None:
-    """COPY mapea por posición: un CSV con otro orden cargaría datos en la columna equivocada."""
+    """COPY mapea por posición: otro orden cargaría datos en la columna equivocada."""
     with ruta.open(encoding="utf-8-sig", newline="") as f:
         encontrado = next(csv.reader(f, delimiter=delimitador), [])
-    esperado = [nombre for nombre, _ in COLUMNAS]
-    if _normalizar(encontrado) != _normalizar(esperado):
+    if _normalizar(encontrado) != _normalizar(COLUMNAS):
         raise SystemExit(
-            f"{ruta}: el encabezado no coincide.\n"
-            f"  esperado:   {esperado}\n"
+            f"{ruta}: el encabezado no coincide con el esquema.\n"
+            f"  esperado:   {COLUMNAS}\n"
             f"  encontrado: {encontrado}\n"
-            "Revisa el delimitador (--delimiter) y el orden de columnas."
+            "¿Estás cargando el CSV crudo del INE en vez del que genera `python -m ingesta`?"
         )
 
 
 def sentencia_copy(delimitador: str) -> sql.Composed:
-    columnas = sql.SQL(", ").join(sql.Identifier(col) for _, col in COLUMNAS)
+    columnas = sql.SQL(", ").join(sql.Identifier(c) for c in COLUMNAS)
     return sql.SQL(
-        "COPY educacion ({columnas}) FROM STDIN "
+        "COPY {tabla} ({columnas}) FROM STDIN "
         "WITH (FORMAT csv, HEADER true, DELIMITER {delimitador}, ENCODING 'UTF8')"
-    ).format(columnas=columnas, delimitador=sql.Literal(delimitador))
+    ).format(
+        tabla=sql.Identifier(TABLA),
+        columnas=columnas,
+        delimitador=sql.Literal(delimitador),
+    )
 
 
 def verificar(cur: psycopg.Cursor) -> None:
-    """Comprueba que la carga tenga sentido; si no, lanza y la transacción se revierte."""
+    """Contrasta la carga contra las cifras publicadas. Si algo falla, revierte."""
     cur.execute(
-        """
-        SELECT count(*),
-               count(DISTINCT municipio) FILTER (WHERE departamento = 1),
-               count(DISTINCT municipio)
-        FROM educacion
-        """
+        sql.SQL(
+            """
+            SELECT count(*),
+                   count(DISTINCT municipio_codigo) FILTER (WHERE departamento_codigo = 1),
+                   count(DISTINCT municipio_codigo)
+            FROM {}
+            """
+        ).format(sql.Identifier(TABLA))
     )
     total, municipios_guatemala, municipios = cur.fetchone()
-    print(f"Registros:               {total:,}  (dataset completo: 4,298,887)")
-    print(f"Municipios Guatemala:    {municipios_guatemala}  (dataset completo: 17)")
-    print(f"Municipios en total:     {municipios}  (dataset completo: ~340)")
+    print(f"Registros:            {total:>10,}  (esperado {TOTAL_ESPERADO:,})")
+    print(f"Municipios Guatemala: {municipios_guatemala:>10}  (esperado {MUNICIPIOS_GUATEMALA_ESPERADOS})")
+    print(f"Municipios en total:  {municipios:>10}  (esperado ~340)")
+
+    if total == TOTAL_ESPERADO and municipios_guatemala != MUNICIPIOS_GUATEMALA_ESPERADOS:
+        raise SystemExit(
+            f"El departamento de Guatemala tiene {municipios_guatemala} municipios y "
+            f"debería tener {MUNICIPIOS_GUATEMALA_ESPERADOS}. Carga revertida."
+        )
 
     for tabla in TABLAS_AGREGADOS:
         cur.execute(sql.SQL("SELECT COALESCE(sum(total), 0) FROM {}").format(sql.Identifier(tabla)))
         (suma,) = cur.fetchone()
         if suma != total:
             raise SystemExit(f"{tabla}: suma {suma:,} != {total:,} registros. Carga revertida.")
-    print("Agregados:               OK (cada tabla suma el total de registros)")
+    print("Agregados:            cada tabla suma el total de registros")
+
+    # Las etiquetas del INE van sin tilde ('Si', 'Si es graduando'). Si alguien
+    # las escribe con tilde en 03_agregados.sql, el conteo da cero en silencio.
+    cur.execute("SELECT SUM(repitentes), SUM(graduandos) FROM agg_departamento")
+    repitentes, graduandos = cur.fetchone()
+    if not repitentes or not graduandos:
+        raise SystemExit(
+            f"Repitentes={repitentes}, graduandos={graduandos}: alguno quedó en cero. "
+            "Revisa las etiquetas que filtra 03_agregados.sql. Carga revertida."
+        )
+    print(f"Repitencia:           {100 * repitentes / total:>9.1f}%  (esperado ~8.3%)")
+    print(f"Graduandos:           {100 * graduandos / total:>9.1f}%  (esperado ~3.7%)")
 
 
 def cargar(archivos: list[Path], delimitador: str, url: str) -> None:
@@ -99,17 +139,17 @@ def cargar(archivos: list[Path], delimitador: str, url: str) -> None:
     copy_sql = sentencia_copy(delimitador)
     # `with connect()` hace commit al salir sin error y rollback si algo lanza.
     with psycopg.connect(url) as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE educacion")
+        cur.execute(sql.SQL("TRUNCATE {}").format(sql.Identifier(TABLA)))
         for ruta in archivos:
             print(f"Cargando {ruta} ...", flush=True)
-            # COPY ... FROM STDIN: el cliente envía el archivo por streaming a Postgres.
-            # No requiere que el archivo esté dentro del contenedor ni permisos de superusuario.
+            # COPY ... FROM STDIN: el cliente envía el archivo por streaming.
+            # No requiere que el CSV esté dentro del contenedor ni ser superusuario.
             with cur.copy(copy_sql) as copy, ruta.open("rb") as f:
                 while bloque := f.read(BLOQUE):
                     copy.write(bloque)
-        cur.execute("ANALYZE educacion")
+        cur.execute(sql.SQL("ANALYZE {}").format(sql.Identifier(TABLA)))
         print("Recalculando agregados ...", flush=True)
-        cur.execute("CALL refresh_aggregates()")
+        cur.execute("CALL refresh_agregados()")
         verificar(cur)
 
 
@@ -125,7 +165,7 @@ def main() -> None:
 
     url = os.environ.get("DATABASE_URL")
     if not url:
-        sys.exit("Falta DATABASE_URL. Copia .env.example a .env y cárgalo (ver instrucciones).")
+        sys.exit("Falta DATABASE_URL. Copia env.example a .env y cárgalo (ver LEEME.md).")
 
     try:
         cargar(args.archivos, args.delimiter, url)

@@ -1,8 +1,0 @@
-.venv/
-__pycache__/
-*.pyc
-
-# Datos: se descargan con `python -m ingesta.descargar`, no se versionan.
-datos/crudo/
-datos/procesado/
-*.parcial

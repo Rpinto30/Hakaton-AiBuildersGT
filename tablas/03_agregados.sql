@@ -7,10 +7,20 @@
 -- porque salen de la misma tabla.
 --
 -- Decisiones de conteo (documentadas para no cambiarlas sin querer):
---   * retirados = 'Retirado' + 'Retirado definitivo'. El segundo casi no aparece.
+--   * retirados = 'Retirado' + 'Retirado Definitivo'. El segundo no aparece ni
+--     una vez en las 4.3 M de filas, pero se cuenta por si reaparece.
 --   * el denominador de las tasas es TODO el grupo, incluidas Vigentes e
 --     Ignoradas, así que promoción + no promoción + retiro puede sumar < 100%.
 --   * 'Ignorado' se reporta como fila propia, nunca se descarta: es dato real.
+--
+-- CUIDADO CON LAS ETIQUETAS: se comparan por igualdad exacta contra los valores
+-- que produce la ingesta, y son los del diccionario del INE tal cual. Dos van
+-- SIN TILDE y es fácil equivocarse:
+--       repitente = 'Si'              (no 'Sí')
+--       graduando = 'Si es graduando' (no 'Sí es graduando')
+-- Una comparación con tilde no lanza error: simplemente cuenta cero y deja la
+-- tasa de repitencia en 0.00 sin que nada avise. 04_validacion.sql tiene un
+-- control específico para eso.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -106,11 +116,11 @@ BEGIN
                    count(*),
                    count(*) FILTER (WHERE resultado_final = 'Promovido'),
                    count(*) FILTER (WHERE resultado_final = 'No promovido'),
-                   count(*) FILTER (WHERE resultado_final IN ('Retirado', 'Retirado definitivo')),
+                   count(*) FILTER (WHERE resultado_final IN ('Retirado', 'Retirado Definitivo')),
                    count(*) FILTER (WHERE resultado_final = 'Vigente'),
                    count(*) FILTER (WHERE resultado_final = 'Ignorado'),
-                   count(*) FILTER (WHERE repitente LIKE 'Sí%%'),
-                   count(*) FILTER (WHERE graduando LIKE 'Sí%%')
+                   count(*) FILTER (WHERE repitente = 'Si'),
+                   count(*) FILTER (WHERE graduando = 'Si es graduando')
             FROM inscripciones
             GROUP BY %6$s
         $sql$, dim.tabla, dim.clave, dim.etiqueta, dim.padre, dim.orden, dim.agrupar);
@@ -127,7 +137,7 @@ BEGIN
            count(*),
            count(*) FILTER (WHERE resultado_final = 'Promovido'),
            count(*) FILTER (WHERE resultado_final = 'No promovido'),
-           count(*) FILTER (WHERE resultado_final IN ('Retirado', 'Retirado definitivo'))
+           count(*) FILTER (WHERE resultado_final IN ('Retirado', 'Retirado Definitivo'))
     FROM inscripciones
     GROUP BY departamento_codigo, departamento, nivel_codigo, COALESCE(nivel, '(sin dato)');
 END;

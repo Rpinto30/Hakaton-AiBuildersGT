@@ -12,3 +12,9 @@ node_modules/
 React-UI/dist/
 React-UI/.tmp/
 *.tsbuildinfo
+
+# Credenciales locales. Se copia de env.example; nunca se versiona.
+.env
+
+# Directorio temporal de la verificacion del README.
+_verificacion/

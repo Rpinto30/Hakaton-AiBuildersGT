@@ -7,6 +7,7 @@ propósito. Por eso un solo endpoint sirve las cinco dimensiones.
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -84,21 +85,43 @@ class Resumen(BaseModel):
     tasa_repitencia: float
 
 
+class MensajePrevio(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=4000)
+
+
 class PreguntaChat(BaseModel):
-    pregunta: str
+    pregunta: str = Field(max_length=1000)
     contexto: list[str] = Field(
         default_factory=list, description="Departamentos seleccionados en el mapa."
     )
+    historial: list[MensajePrevio] = Field(
+        default_factory=list,
+        max_length=40,
+        description="Mensajes anteriores, para entender preguntas de seguimiento.",
+    )
+
+
+class ConsultaDelAgente(BaseModel):
+    herramienta: str
+    argumentos: str
+    resultado: dict
 
 
 class RespuestaChat(BaseModel):
     respuesta: str
     con_ia: bool = Field(
-        description="False mientras responda el buscador determinista sobre los "
-        "agregados, sin modelo de lenguaje."
+        description="True si respondió el agente (modelo de lenguaje + consultas a la "
+        "base). False si respondió el buscador determinista, que es el respaldo "
+        "cuando no hay llave de OpenAI o el modelo no está disponible."
     )
     cifras: list[Fila] = Field(
         default_factory=list,
         description="Filas exactas en las que se basa la respuesta. Nunca se "
         "generan cifras: salen de las mismas tablas que el dashboard.",
+    )
+    consultas: list[ConsultaDelAgente] = Field(
+        default_factory=list,
+        description="Con el agente: qué le pidió a la base para responder. El modelo "
+        "no escribe cifras por su cuenta; todas salen de estas consultas.",
     )

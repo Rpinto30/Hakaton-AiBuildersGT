@@ -11,10 +11,15 @@ Levantar en desarrollo:
 
 from __future__ import annotations
 
+import logging
 import os
+import threading
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+from agente import agente
+from agente.configuracion import ErrorDeConfiguracion
 
 from . import buscador, consultas
 from .db import BaseNoDisponible, esta_viva
@@ -48,6 +53,12 @@ _origenes = [
 app.add_middleware(
     CORSMiddleware, allow_origins=_origenes, allow_methods=["GET", "POST"], allow_headers=["*"]
 )
+
+registro = logging.getLogger("uvicorn.error")
+
+# Los catálogos del agente tardan ~5 s en leerse de la base. Se cargan en segundo
+# plano al arrancar para que no los pague la primera persona que pregunte.
+threading.Thread(target=agente.precalentar, daemon=True).start()
 
 MENSAJE_SIN_BASE = (
     "No hay conexión con la base de datos. Levántala con `docker compose up -d db` "
@@ -118,6 +129,21 @@ def chat(entrada: PreguntaChat) -> RespuestaChat:
     if not entrada.pregunta.strip():
         raise HTTPException(status_code=422, detail="La pregunta viene vacía.")
     try:
+        return _responder_con_agente(entrada)
+    except (ErrorDeConfiguracion, agente.ErrorDelModelo) as error:
+        # Sin llave de OpenAI, o con el modelo caído, el chat no se rompe:
+        # responde el buscador determinista y `con_ia` lo dice.
+        registro.warning("Chat sin IA, responde el buscador: %s", error)
+    try:
         return RespuestaChat(**buscador.responder(entrada.pregunta, entrada.contexto))
     except BaseNoDisponible as error:
         raise _sin_base(error) from error
+
+
+def _responder_con_agente(entrada: PreguntaChat) -> RespuestaChat:
+    respuesta = agente.responder(
+        entrada.pregunta,
+        entrada.contexto,
+        [mensaje.model_dump() for mensaje in entrada.historial],
+    )
+    return RespuestaChat(respuesta=respuesta.texto, con_ia=True, consultas=respuesta.consultas)

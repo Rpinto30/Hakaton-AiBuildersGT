@@ -1,0 +1,3 @@
+# Unica dependencia: lector de .xlsx implementado en Rust, elegido por
+# velocidad sobre openpyxl para procesar 4.3 millones de filas.
+python-calamine==0.8.2

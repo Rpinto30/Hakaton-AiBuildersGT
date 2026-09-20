@@ -6,7 +6,7 @@ puede saber.
 
 ## Cómo se usa
 
-Requiere Postgres cargado (ver `LEEME.md`) y una llave de OpenAI en `.env`
+Requiere Postgres cargado (ver el README) y una llave de OpenAI en `.env`
 (ver `env.example`). La llave nunca va al repositorio: `.env` está en `.gitignore`.
 **Sin llave el chat no se rompe:** responde el buscador determinista de
 `api/buscador.py` y la respuesta trae `con_ia: false`.

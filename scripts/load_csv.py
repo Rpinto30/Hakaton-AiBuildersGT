@@ -4,7 +4,7 @@
 Uso:
     python scripts/load_csv.py datos/procesado/inscripciones.csv
 
-Automatiza el mismo camino que LEEME.md describe a mano. Espera el CSV que
+Automatiza el mismo camino que el README describe a mano. Espera el CSV que
 produce `python -m ingesta`: 20 columnas YA DECODIFICADAS (palabras, no códigos)
 y el municipio resuelto. No es el archivo crudo del INE.
 
@@ -165,7 +165,7 @@ def main() -> None:
 
     url = os.environ.get("DATABASE_URL")
     if not url:
-        sys.exit("Falta DATABASE_URL. Copia env.example a .env y cárgalo (ver LEEME.md).")
+        sys.exit("Falta DATABASE_URL. Copia env.example a .env y cárgalo (ver el README).")
 
     try:
         cargar(args.archivos, args.delimiter, url)

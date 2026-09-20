@@ -63,7 +63,7 @@ threading.Thread(target=agente.precalentar, daemon=True).start()
 
 MENSAJE_SIN_BASE = (
     "No hay conexión con la base de datos. Levántala con `docker compose up -d db` "
-    "y carga los datos siguiendo LEEME.md."
+    "y carga los datos siguiendo el README."
 )
 
 
@@ -86,7 +86,7 @@ def obtener_resumen() -> Resumen:
     if not datos:
         raise HTTPException(
             status_code=503,
-            detail="La base está viva pero vacía. Carga inscripciones.csv (ver LEEME.md).",
+            detail="La base está viva pero vacía. Carga inscripciones.csv (ver el README).",
         )
     return Resumen(**datos)
 

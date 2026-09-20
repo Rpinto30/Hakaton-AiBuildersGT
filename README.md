@@ -3,17 +3,17 @@
 Herramienta para volver legible el dataset **Educación Formal 2024** del INE de
 Guatemala: 4,298,887 inscripciones escolares publicadas como códigos numéricos.
 
-El proyecto tiene tres componentes:
-
 | Componente | Qué hace |
 |---|---|
 | **Ingesta** (`ingesta/`) | Lee los 23 `.xlsx`, los decodifica y produce CSVs verificados |
 | **Base de datos** (`tablas/`, `docker-compose.yml`) | Postgres 17 + PostGIS; agregados precalculados |
-| **API** (`api/`) | FastAPI: sirve los agregados y responde el chat |
-| **Frontend** (`React-UI/`) | React + Leaflet: mapa coroplético, dashboard y chat |
+| **API** (`api/`) | FastAPI: sirve los agregados y el modelo de prioridad |
+| **Agente** (`agente/`) | Responde `POST /api/chat` consultando la base, nunca de memoria |
+| **Frontend** (`React-UI/`) | React + Leaflet: mapa, dashboard, comparador y chat |
 
 Las decisiones técnicas y el porqué de cada una están en
-[`docs/decisiones.md`](docs/decisiones.md).
+[`docs/decisiones.md`](docs/decisiones.md); el agente, en
+[`docs/agente.md`](docs/agente.md).
 
 ## Puesta en marcha completa
 
@@ -32,6 +32,8 @@ docker exec -i educacion-db psql -U educacion -d educacion < tablas/01_schema.sq
 docker exec -i educacion-db psql -U educacion -d educacion < tablas/03_agregados.sql
 python scripts/load_csv.py datos/procesado/inscripciones.csv   # ~3 min
 docker exec -i educacion-db psql -U educacion -d educacion < tablas/02_indices.sql
+docker exec -i educacion-db psql -U educacion -d educacion < tablas/05_perfil_municipio.sql
+docker exec -i educacion-db psql -U educacion -d educacion -c "CALL refresh_perfil_municipio();"
 docker exec -i educacion-db psql -U educacion -d educacion < tablas/04_validacion.sql
 
 # 3. Levantar API + frontend
@@ -44,10 +46,96 @@ npm run dev
 frontend en <http://localhost:5173>. Las rutas `/api/*` las reenvía el proxy de
 Vite, así que no hace falta configurar CORS ni URLs.
 
-El detalle paso a paso de la carga a Postgres está en [`LEEME.md`](LEEME.md).
-
 > Si el dashboard dice que no pudo cargar las cifras, es que la API o la base no
 > están arriba. `curl http://127.0.0.1:8000/health` lo confirma en un segundo.
+
+---
+
+## Carga a Postgres, paso a paso
+
+Los comandos de arriba hacen todo esto de corrido. Esta sección explica cada
+paso por si algo falla o se quiere correr a mano desde `psql`.
+
+| # | Archivo | Qué deja | Cuánto tarda |
+|---|---|---|---|
+| 1 | `tablas/01_schema.sql` | tabla `inscripciones` vacía | instantáneo |
+| 2 | `tablas/03_agregados.sql` | tablas `agg_*` y `refresh_agregados()` | instantáneo |
+| 3 | `scripts/load_csv.py` | los 4.3 M de filas + agregados | ~3 min |
+| 4 | `tablas/02_indices.sql` | índices y `ANALYZE` | ~12 s |
+| 5 | `tablas/05_perfil_municipio.sql` | `agg_municipio_perfil` para el modelo | ~5 s |
+| 6 | `tablas/04_validacion.sql` | el reporte de verificación | instantáneo |
+
+**El orden importa en dos puntos.** Los índices van *después* del `COPY`:
+mantenerlos vivos durante la carga de 4.3 M de filas la hace varias veces más
+lenta. Y los agregados (`03`) se crean *antes* de cargar, porque `load_csv.py`
+llama a `refresh_agregados()` al terminar.
+
+### Con el script (recomendado)
+
+```bash
+python scripts/load_csv.py datos/procesado/inscripciones.csv
+```
+
+Valida el encabezado, hace el `COPY`, reconstruye los agregados y contrasta el
+resultado contra las cifras publicadas. Todo en una transacción: si algo no
+cuadra, revierte y la base queda como estaba.
+
+### A mano desde psql
+
+```bash
+docker exec -it educacion-db psql -U educacion -d educacion
+```
+
+```sql
+\i tablas/01_schema.sql
+\i tablas/03_agregados.sql
+\copy inscripciones FROM 'datos/procesado/inscripciones.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8');
+\i tablas/02_indices.sql
+CALL refresh_agregados();
+\i tablas/05_perfil_municipio.sql
+CALL refresh_perfil_municipio();
+\i tablas/04_validacion.sql
+```
+
+> Usa **`\copy` con barra invertida, no `COPY`**. `\copy` lee el archivo desde
+> el cliente; `COPY` lo busca dentro del contenedor, donde no está.
+
+Para probar sin cargar 681 MB, primero mil líneas:
+
+```bash
+head -1001 datos/procesado/inscripciones.csv > /tmp/prueba.csv
+```
+
+La validación tiene que dar **4,298,887** registros y **17** municipios en
+Guatemala. Si eso sale, toda la cadena desde el `.xlsx` hasta Postgres está bien.
+
+### Tablas que quedan
+
+| Tabla | Filas | Para qué |
+|---|---:|---|
+| `inscripciones` | 4,298,887 | microdatos; es lo que consulta el agente |
+| `agg_departamento` | 22 | vista general |
+| `agg_municipio` | 340 | **el mapa** |
+| `agg_nivel` | 5 | vista general |
+| `agg_sector` | 4 | vista general |
+| `agg_area` | 3 | vista general |
+| `agg_departamento_nivel` | ~110 | la desagregación que pide el reto |
+| `agg_resumen` | 1 | KPIs nacionales del dashboard |
+| `agg_municipio_perfil` | 340 | composición de cada municipio, para el modelo |
+
+Las cinco `agg_*` de dimensión comparten la misma forma (`clave`, `etiqueta`,
+`padre`, `orden`, conteos y tasas), y por eso un solo endpoint las sirve todas.
+
+### Conectarse desde fuera del contenedor
+
+Usa **`127.0.0.1`, no `localhost`**. `docker-compose.yml` publica el puerto solo
+en IPv4, y resolver `localhost` intenta primero `::1`, donde no escucha nadie:
+cada conexión espera a que venza el timeout antes de reintentar. Medido en este
+proyecto: **130 s contra 0.013 s**.
+
+```
+postgresql://educacion:TU_CONTRASEÑA@127.0.0.1:5432/educacion
+```
 
 ---
 
@@ -89,9 +177,9 @@ Los `.xlsx` no se versionan: se bajan con el paso 3. El script es idempotente
 —si un archivo ya está y abre correctamente, no lo vuelve a bajar— así que se
 puede repetir sin miedo.
 
-> **Verificado de punta a punta.** Copiamos únicamente los 13 archivos que el
-> repositorio versiona a un directorio vacío y seguimos estos cuatro pasos desde
-> cero: el entorno se creó, la única dependencia se instaló, los 23 archivos se
+> **Verificado de punta a punta.** Copiamos a un directorio vacío solo los
+> archivos que el repositorio versiona y seguimos estos pasos desde cero: el
+> entorno se creó, las dependencias se instalaron, los 23 archivos se
 > descargaron y la ingesta produjo los 4,298,887 registros con las 15
 > verificaciones en verde.
 

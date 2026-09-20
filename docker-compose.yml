@@ -15,7 +15,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       # Los scripts de tablas/ NO se montan en /docker-entrypoint-initdb.d a
       # propósito: la carga usa \copy, que lee el CSV desde el cliente y no
-      # desde el contenedor. El orden completo está en LEEME.md.
+      # desde el contenedor. El orden completo está en el README.
     shm_size: 256mb
     healthcheck:
       # -h 127.0.0.1 fuerza TCP: durante la inicialización el servidor temporal

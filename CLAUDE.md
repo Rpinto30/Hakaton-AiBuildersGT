@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Hackathon project (AI Builders GT) that makes the INE Guatemala dataset *Educación Formal 2024* readable: 4,298,887 school enrollments published as numeric codes across 23 `.xlsx` files. Data flows one way: `ingesta/` (xlsx → verified CSVs) → `tablas/*.sql` (Postgres + PostGIS, loaded per `LEEME.md`) → `api/` (FastAPI) → `React-UI/` (Vite dashboard), with `agente/` (OpenAI tool-calling agent behind `POST /api/chat`) answering questions from the same database. The contract between ingestion and everything downstream is the column layout of the output CSVs. Different team members own different components; keep changes inside the component you were asked about.
+Hackathon project (AI Builders GT) that makes the INE Guatemala dataset *Educación Formal 2024* readable: 4,298,887 school enrollments published as numeric codes across 23 `.xlsx` files. Data flows one way: `ingesta/` (xlsx → verified CSVs) → `tablas/*.sql` (Postgres + PostGIS, loaded per the README) → `api/` (FastAPI) → `React-UI/` (Vite dashboard), with `agente/` (OpenAI tool-calling agent behind `POST /api/chat`) answering questions from the same database. The contract between ingestion and everything downstream is the column layout of the output CSVs. Different team members own different components; keep changes inside the component you were asked about.
 
 Requirements of the challenge (what is graded, what the agent must do) are summarized in `docs/agente.md` and `docs/decisiones.md`; no credentials may ever be committed (`.env` is gitignored, `env.example` is the template).
 
@@ -30,7 +30,7 @@ Rest of the stack (needs `.env` copied from `env.example`):
 
 ```bash
 docker compose up -d db                    # Postgres 17 + PostGIS on 127.0.0.1:5432 (Apple Silicon needs a local docker-compose.override.yml with platform: linux/amd64)
-# load data: README "Puesta en marcha completa" / LEEME.md (tablas/01 → 03 → scripts/load_csv.py → 02 → 04)
+# load data: README "Carga a Postgres, paso a paso" (tablas/01 → 03 → scripts/load_csv.py → 02 → 04)
 cd React-UI && npm install && npm run dev  # starts BOTH uvicorn (:8000, via scripts/dev-api.mjs using ../.venv) and Vite (:5173, proxies /api)
 npm run lint ; npx tsc -b --noEmit         # frontend checks (from React-UI/)
 python -m agente "pregunta"                # agent from the terminal; --ver-consultas shows the queries it ran

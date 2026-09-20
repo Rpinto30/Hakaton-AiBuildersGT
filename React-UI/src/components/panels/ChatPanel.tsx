@@ -8,9 +8,11 @@ import { useUiStore } from '@/store/uiStore'
 import { cn } from '@/lib/cn'
 import { Spinner } from '@/components/ui/Spinner'
 
+import { ChatMarkdown } from './ChatMarkdown'
+
 const PROMPT_CHIPS = [
-  '¿Cuál es el más poblado?',
-  'Compara Petén y Guatemala',
+  '¿Qué departamento tiene más estudiantes?',
+  '¿Se abandona más la escuela en el área rural?',
   'Resume el departamento seleccionado',
 ] as const
 
@@ -126,13 +128,17 @@ export function ChatPanel() {
               <div
                 key={message.id}
                 className={cn(
-                  'max-w-[88%] rounded-2xl px-3.5 py-2 text-[15px] leading-relaxed',
+                  'rounded-2xl px-3.5 py-2 text-[15px] leading-relaxed',
                   message.role === 'user'
-                    ? 'ml-auto rounded-br-md bg-jade-600 text-white'
-                    : 'rounded-bl-md bg-jade-800/70 text-jade-50',
+                    ? 'ml-auto max-w-[88%] whitespace-pre-wrap rounded-br-md bg-jade-600 text-white'
+                    : 'max-w-[94%] rounded-bl-md bg-jade-800/70 text-jade-50',
                 )}
               >
-                {message.content}
+                {message.role === 'assistant' ? (
+                  <ChatMarkdown content={message.content} />
+                ) : (
+                  message.content
+                )}
               </div>
             ))}
             {isTyping && (

@@ -53,10 +53,15 @@ export function GuatemalaMap() {
         zoomControl={false}
         attributionControl
       >
+        {/*
+          OpenStreetMap directo: no pide API key. Los tiles claros de CARTO
+          (basemaps.cartocdn.com) ahora la exigen y devuelven las imágenes con
+          "API KEY REQUIRED" estampado encima de todo el mapa.
+        */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          subdomains="abcd"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
         <DepartmentLayer geojson={geojson} joined={joined} />
         <FitBounds geojson={geojson} />

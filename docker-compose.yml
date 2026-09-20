@@ -1,0 +1,28 @@
+# Postgres 17 + PostGIS 3.5 para el proyecto Educación Formal 2024.
+# Las credenciales vienen de .env (ver .env.example); nunca se commitean.
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    container_name: educacion-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-educacion}
+      POSTGRES_USER: ${POSTGRES_USER:-educacion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en el archivo .env}
+    ports:
+      # Solo accesible desde tu máquina, no desde la red.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Scripts SQL que corren UNA sola vez, al crear el volumen por primera vez.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    shm_size: 256mb
+    healthcheck:
+      # -h 127.0.0.1 fuerza TCP: durante la inicialización el servidor temporal
+      # solo escucha por socket unix, y sin -h el healthcheck daría "healthy" antes de tiempo.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

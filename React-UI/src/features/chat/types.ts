@@ -1,3 +1,5 @@
+import type { DepartmentData } from '@/features/departments'
+
 export interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -7,6 +9,7 @@ export interface Message {
 export interface ChatRequest {
   pregunta: string
   contexto: string[]
+  departamentos?: DepartmentData[]
 }
 
 export interface ChatResponse {

@@ -1,5 +1,11 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+
+/* Variante dark por clase (control manual + persistencia), no por prefers-color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Spectral', ui-serif, Georgia, serif;
@@ -39,6 +45,24 @@
   --color-volc-500: #46564f;
   --color-volc-700: #2b3a34;
   --color-volc-900: #1b241f;
+}
+
+/* Modo oscuro (clase .dark en <html>, activada por settings). */
+.dark {
+  color-scheme: dark;
+
+  /* petate: superficies oscuras */
+  --color-petate-100: #0f1713;
+  --color-petate-200: #131c17;
+  --color-petate-300: #1a2620;
+  --color-petate-400: #24352b;
+
+  /* volc: texto y bordes en tonos claros */
+  --color-volc-100: #1b2721;
+  --color-volc-400: #75867d;
+  --color-volc-500: #8fa097;
+  --color-volc-700: #cad5cf;
+  --color-volc-900: #eef2ef;
 }
 
 @layer base {
@@ -151,4 +175,41 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--color-jade-900);
+}
+
+/* Tomar las teselas (OSM / CARTO light) y volverlas oscuras en dark mode
+   con un filtro CSS estándar, así el mapa acompaña el tema sin cambiar de proveedor. */
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.85);
+}
+
+.dark .leaflet-container {
+  background: var(--color-petate-200);
+}
+
+.dark .leaflet-control-attribution {
+  background: rgb(21 32 27 / 0.75) !important;
+  color: var(--color-volc-400) !important;
+}
+
+.dark .leaflet-control-attribution a {
+  color: var(--color-volc-300);
+}
+
+.dark .department-tooltip {
+  border-color: rgb(238 226 197 / 0.12);
+  background: rgb(15 22 18 / 0.95);
+  box-shadow: 0 argo 4px 8px rgb(0 0 0 / 0.35);
+}
+
+.dark .department-tooltip .tooltip-label {
+  color: var(--color-volc-400);
+}
+
+.dark .department-tooltip .tooltip-muted {
+  color: var(--color-volc-500);
+}
+
+.dark .department-tooltip .tooltip-value {
+  color: var(--color-jade-300);
 }

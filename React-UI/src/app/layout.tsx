@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { ChatPanel } from '@/components/panels/ChatPanel'
@@ -13,13 +14,24 @@ import { cn } from '@/lib/cn'
 
 export function AppLayout() {
   const selected = useMapUiStore((state) => state.selected)
+  const setSelected = useMapUiStore((state) => state.setSelected)
   const chatOpen = useUiStore((state) => state.chatOpen)
   const detailsOpen = useUiStore((state) => state.detailsOpen)
   const toggleChat = useUiStore((state) => state.toggleChat)
   const toggleDetails = useUiStore((state) => state.toggleDetails)
+  const setDetailsOpen = useUiStore((state) => state.setDetailsOpen)
 
   const { joined } = useDepartmentsData()
   const { joined: selectedJoined } = useDepartmentMeta(selected, joined)
+
+  useEffect(() => {
+    if (selected !== null && !detailsOpen) setDetailsOpen(true)
+  }, [selected, detailsOpen, setDetailsOpen])
+
+  const collapseDetails = () => {
+    setSelected(null)
+    toggleDetails()
+  }
 
   return (
     <div className="relative flex h-full min-h-0 w-full overflow-hidden bg-petate-100">
@@ -101,7 +113,7 @@ export function AppLayout() {
         {detailsOpen ? (
           <button
             type="button"
-            onClick={() => toggleDetails()}
+            onClick={() => collapseDetails()}
             aria-label="Ocultar detalles"
             className="absolute -left-3 top-1/2 z-30 hidden h-8 w-6 -translate-y-1/2 items-center justify-center rounded-l-md border border-r-0 border-volc-900/10 bg-white text-volc-600 shadow-sm transition-colors hover:bg-petate-100 hover:text-jade-800 lg:flex"
           >

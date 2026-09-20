@@ -52,6 +52,7 @@ export function MapControls() {
   const detailsOpen = useUiStore((state) => state.detailsOpen)
   const toggleChat = useUiStore((state) => state.toggleChat)
   const toggleDetails = useUiStore((state) => state.toggleDetails)
+  const setSelected = useMapUiStore((state) => state.setSelected)
 
   return (
     <div className="absolute right-3 top-3 z-[500] flex flex-col items-end gap-2">
@@ -95,7 +96,10 @@ export function MapControls() {
           </IconButton>
           <IconButton
             label={detailsOpen ? 'Ocultar detalles' : 'Abrir detalles'}
-            onClick={() => toggleDetails()}
+            onClick={() => {
+              setSelected(null)
+              toggleDetails()
+            }}
             className="lg:hidden"
           >
             <Info size={15} />

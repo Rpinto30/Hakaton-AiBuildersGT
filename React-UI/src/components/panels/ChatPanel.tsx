@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react'
 import { MessageSquare, Send, X } from 'lucide-react'
 
 import { useChat } from '@/features/chat'
+import { useDepartmentsData } from '@/features/departments'
 import { useMapUiStore } from '@/features/mapui'
 import { useUiStore } from '@/store/uiStore'
 import { cn } from '@/lib/cn'
@@ -16,6 +17,7 @@ const PROMPT_CHIPS = [
 
 export function ChatPanel() {
   const { messages, isTyping, send } = useChat()
+  const { data: departamentos } = useDepartmentsData()
   const selected = useMapUiStore((state) => state.selected)
   const toggleChat = useUiStore((state) => state.toggleChat)
   const [draft, setDraft] = useState('')
@@ -32,7 +34,7 @@ export function ChatPanel() {
   }, [messages, isTyping])
 
   const submitText = (pregunta: string) => {
-    void send(pregunta, selected === null ? [] : [selected])
+    void send(pregunta, selected === null ? [] : [selected], departamentos)
   }
 
   const submit = () => {
@@ -126,7 +128,7 @@ export function ChatPanel() {
               <div
                 key={message.id}
                 className={cn(
-                  'max-w-[88%] rounded-2xl px-3.5 py-2 text-[15px] leading-relaxed',
+                  'max-w-[88%] whitespace-pre-line rounded-2xl px-3.5 py-2 text-[15px] leading-relaxed',
                   message.role === 'user'
                     ? 'ml-auto rounded-br-md bg-jade-600 text-white'
                     : 'rounded-bl-md bg-jade-800/70 text-jade-50',

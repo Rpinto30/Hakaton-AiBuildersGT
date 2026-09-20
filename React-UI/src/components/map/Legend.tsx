@@ -2,7 +2,10 @@ import { useMemo } from 'react'
 import { Layers } from 'lucide-react'
 
 import { useMapUiStore } from '@/features/mapui'
-import { formatMetricLabel } from '@/features/departments'
+import {
+  formatMetricLabel,
+  formatValue,
+} from '@/features/departments'
 import type { JoinedDepartment } from '@/features/departments'
 
 import {
@@ -47,8 +50,8 @@ export function Legend({ joined }: LegendProps) {
         aria-hidden="true"
       />
       <div className="mt-1 flex justify-between text-[12px] text-volc-500">
-        <span>{min}</span>
-        <span>{max}</span>
+        <span>{formatValue(min)}</span>
+        <span>{formatValue(max)}</span>
       </div>
 
       <div className="mt-2.5 flex items-center gap-1.5 text-[12px] text-volc-500">

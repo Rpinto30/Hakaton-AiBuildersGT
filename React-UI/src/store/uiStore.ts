@@ -9,9 +9,13 @@ export interface UiState {
   setDetailsOpen: (open: boolean) => void
 }
 
+function startsWithDesktopLayout(): boolean {
+  return typeof window !== 'undefined' && window.innerWidth >= 1024
+}
+
 export const useUiStore = create<UiState>()((set) => ({
-  chatOpen: true,
-  detailsOpen: true,
+  chatOpen: startsWithDesktopLayout(),
+  detailsOpen: startsWithDesktopLayout(),
   toggleChat: () => set((state) => ({ chatOpen: !state.chatOpen })),
   setChatOpen: (chatOpen) => set({ chatOpen }),
   toggleDetails: () => set((state) => ({ detailsOpen: !state.detailsOpen })),

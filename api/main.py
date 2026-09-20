@@ -21,13 +21,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from agente import agente
 from agente.configuracion import ErrorDeConfiguracion
 
-from . import buscador, consultas
+from . import buscador, consultas, modelo
 from .db import BaseNoDisponible, esta_viva
 from .schemas import (
     Agregados,
     CruceNivel,
     Dimension,
     PreguntaChat,
+    Prioridad,
     RespuestaChat,
     Resumen,
 )
@@ -122,6 +123,25 @@ def obtener_cruce() -> list[CruceNivel]:
         return [CruceNivel(**fila) for fila in consultas.departamento_nivel()]
     except BaseNoDisponible as error:
         raise _sin_base(error) from error
+
+
+@app.get(
+    "/api/prioridad",
+    response_model=Prioridad,
+    summary="Municipios que rinden por debajo de lo que su perfil hace esperar",
+)
+def obtener_prioridad() -> Prioridad:
+    try:
+        resultado = modelo.calcular()
+    except BaseNoDisponible as error:
+        raise _sin_base(error) from error
+    if not resultado:
+        raise HTTPException(
+            status_code=503,
+            detail="Faltan los perfiles de municipio. Corre tablas/05_perfil_municipio.sql "
+            "y CALL refresh_perfil_municipio().",
+        )
+    return Prioridad(**resultado)
 
 
 @app.post("/api/chat", response_model=RespuestaChat, summary="Preguntas sobre los datos")

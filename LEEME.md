@@ -56,7 +56,17 @@ CALL refresh_agregados();
 4.3 M de microdatos. Deja listas las seis tablas `agg_*` más `agg_resumen`, que
 es lo único que la API consulta.
 
-## 5. Validar
+## 5. Perfiles de municipio (para /api/prioridad)
+
+```
+\i 05_perfil_municipio.sql
+CALL refresh_perfil_municipio();
+```
+
+Tarda ~5 s. Sin esta tabla, el dashboard muestra el aviso de que no pudo
+calcular la seccion "Donde mirar primero".
+
+## 6. Validar
 
 ```
 \i 04_validacion.sql
@@ -77,6 +87,7 @@ sale, toda la cadena desde el `.xlsx` hasta Postgres está correcta.
 | `agg_area` | 2 | vista general |
 | `agg_departamento_nivel` | ~110 | la desagregación que pide el reto |
 | `agg_resumen` | 1 | KPIs nacionales del dashboard |
+| `agg_municipio_perfil` | 340 | composicion de cada municipio, para el modelo |
 
 Las cinco primeras `agg_*` comparten la misma forma: `clave`, `etiqueta`,
 `padre`, `orden`, los conteos y las tasas. La API puede servirlas con un solo

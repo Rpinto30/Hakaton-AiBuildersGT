@@ -74,3 +74,36 @@ export interface RespuestaChat {
   cifras: FilaAgregada[]
   consultas: ConsultaDelAgente[]
 }
+
+/** Un municipio con su tasa observada y la que su composición hacía esperar. */
+export interface MunicipioPriorizado {
+  municipio_codigo: string
+  municipio: string
+  departamento: string
+  departamento_codigo: number
+  total: number
+  tasa_promocion: number
+  tasa_no_promocion: number
+  tasa_retiro: number
+  tasa_repitencia: number
+  pct_rural: number
+  esperado: number
+  brecha: number
+  estudiantes_bajo_lo_esperado: number
+  en_el_ajuste: boolean
+}
+
+export interface Coeficiente {
+  variable: string
+  coeficiente: number
+}
+
+export interface Prioridad {
+  r2: number
+  municipios_ajustados: number
+  municipios_totales: number
+  matricula_minima: number
+  intercepto: number
+  coeficientes: Coeficiente[]
+  municipios: MunicipioPriorizado[]
+}

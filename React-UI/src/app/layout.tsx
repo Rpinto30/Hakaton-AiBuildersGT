@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { ChatPanel } from '@/components/panels/ChatPanel'
+import { ComparadorPanel } from '@/components/panels/ComparadorPanel'
 import { InfoPanel } from '@/components/panels/InfoPanel'
 import { GuatemalaMap } from '@/components/map/GuatemalaMap'
 import {
@@ -65,6 +66,7 @@ export function AppLayout() {
 
       <main className="relative min-h-0 min-w-0 flex-1">
         <GuatemalaMap />
+        <ComparadorPanel />
       </main>
 
       {!detailsOpen ? (

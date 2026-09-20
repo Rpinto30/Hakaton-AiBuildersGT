@@ -9,6 +9,7 @@ import type {
 import { GeoJSON } from 'react-leaflet'
 
 import { useMapUiStore } from '@/features/mapui'
+import { useAgregarDepartamento } from '@/features/comparador'
 import type {
   DepartmentFeatureCollection,
   JoinedDepartment,
@@ -95,6 +96,7 @@ export function DepartmentLayer({ geojson, joined }: DepartmentLayerProps) {
   const showTooltips = useMapUiStore((state) => state.showTooltips)
   const setHovered = useMapUiStore((state) => state.setHovered)
   const setSelected = useMapUiStore((state) => state.setSelected)
+  const agregarAlComparador = useAgregarDepartamento()
 
   const latest = useRef({ hovered, selected, showDataLayer })
   latest.current = { hovered, selected, showDataLayer }
@@ -175,7 +177,16 @@ export function DepartmentLayer({ geojson, joined }: DepartmentLayerProps) {
 
       nameByLayer.set(layer, nombre)
       layer.on({
-        click: () => setSelected(nombre),
+        // Clic normal abre el detalle; con Ctrl/Cmd se agrega al comparador,
+        // que es el gesto habitual para "y este también".
+        click: (evento) => {
+          const original = evento.originalEvent as MouseEvent | undefined
+          if (original?.ctrlKey === true || original?.metaKey === true) {
+            void agregarAlComparador(nombre)
+            return
+          }
+          setSelected(nombre)
+        },
         mouseover: () => {
           setHovered(nombre)
           if ('bringToFront' in layer) (layer as LeafletPath).bringToFront()
@@ -191,7 +202,7 @@ export function DepartmentLayer({ geojson, joined }: DepartmentLayerProps) {
         })
       }
     },
-    [dataByNombre, nameByLayer, setHovered, setSelected, showTooltips],
+    [agregarAlComparador, dataByNombre, nameByLayer, setHovered, setSelected, showTooltips],
   )
 
   return (

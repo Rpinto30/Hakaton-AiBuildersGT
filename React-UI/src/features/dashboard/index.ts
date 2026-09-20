@@ -4,3 +4,5 @@ export type {
   DashboardState,
   DistribucionRow,
 } from './useDashboardData'
+export { usePrioridad } from './usePrioridad'
+export type { PrioridadState } from './usePrioridad'

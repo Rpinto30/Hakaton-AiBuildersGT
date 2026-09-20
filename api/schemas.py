@@ -125,3 +125,50 @@ class RespuestaChat(BaseModel):
         description="Con el agente: qué le pidió a la base para responder. El modelo "
         "no escribe cifras por su cuenta; todas salen de estas consultas.",
     )
+
+
+class MunicipioPriorizado(BaseModel):
+    """Un municipio con su tasa observada y la que su perfil hacía esperar."""
+
+    municipio_codigo: str
+    municipio: str
+    departamento: str
+    departamento_codigo: int
+    total: int
+    tasa_promocion: float
+    tasa_no_promocion: float
+    tasa_retiro: float
+    tasa_repitencia: float
+    pct_rural: float
+    esperado: float = Field(description="Promoción que el modelo predice para este perfil.")
+    brecha: float = Field(
+        description="Observado menos esperado. Negativo = rinde por debajo de "
+        "municipios con composición parecida."
+    )
+    estudiantes_bajo_lo_esperado: int = Field(
+        description="Inscripciones que separan al municipio de su nivel esperado. "
+        "Solo se interpreta cuando la brecha es negativa."
+    )
+    en_el_ajuste: bool
+
+
+class Coeficiente(BaseModel):
+    variable: str
+    coeficiente: float
+
+
+class Prioridad(BaseModel):
+    """Resultado del modelo, ordenado de la peor brecha a la mejor.
+
+    Es un modelo descriptivo de asociación sobre un solo ciclo escolar: señala
+    dónde mirar, no por qué pasa. El dataset no permite atribuir causas, ni
+    proyectar otros años, ni decir nada sobre PISA.
+    """
+
+    r2: float = Field(description="Varianza de la promoción que explica la composición.")
+    municipios_ajustados: int
+    municipios_totales: int
+    matricula_minima: int
+    intercepto: float
+    coeficientes: list[Coeficiente]
+    municipios: list[MunicipioPriorizado]

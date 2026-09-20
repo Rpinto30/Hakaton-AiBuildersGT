@@ -20,6 +20,7 @@ import {
   YAxis,
 } from 'recharts'
 
+import { PrioridadSection } from '@/components/dashboard/PrioridadSection'
 import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { useDashboardData } from '@/features/dashboard'
@@ -325,6 +326,8 @@ export function DashboardPage() {
             </ResponsiveContainer>
           </ChartShell>
         </section>
+
+        <PrioridadSection />
 
         <Card className="rounded-2xl border border-volc-900/10 bg-white p-5 shadow-sm">
           <h2 className="font-display text-xl font-semibold text-jade-900">

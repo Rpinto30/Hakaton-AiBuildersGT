@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 
 import { ChatService } from './ChatService'
-import type { Message } from './types'
+import type { ChatTurn, Message } from './types'
 
 export interface ChatState {
   messages: Message[]
@@ -14,6 +14,12 @@ const WELCOME: Message = {
   id: 'welcome',
   role: 'assistant',
   content: 'Haz clic en un departamento del mapa y pregúntame sobre sus cifras.',
+}
+
+function toHistory(messages: Message[]): ChatTurn[] {
+  return messages
+    .filter((message) => message.id !== WELCOME.id)
+    .map(({ role, content }) => ({ role, content }))
 }
 
 export function useChat(): ChatState {
@@ -33,7 +39,11 @@ export function useChat(): ChatState {
     setIsTyping(true)
 
     try {
-      const response = await ChatService.send({ pregunta: trimmed, contexto })
+      const response = await ChatService.send({
+        pregunta: trimmed,
+        contexto,
+        historial: toHistory(messages),
+      })
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -55,7 +65,7 @@ export function useChat(): ChatState {
     } finally {
       setIsTyping(false)
     }
-  }, [])
+  }, [messages])
 
   const clear = useCallback(() => {
     setMessages([WELCOME])

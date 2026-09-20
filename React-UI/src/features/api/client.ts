@@ -29,12 +29,16 @@ async function leerDetalle(response: Response): Promise<string> {
   return `${response.status} ${response.statusText}`
 }
 
-async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
+async function pedir<T>(
+  ruta: string,
+  init?: RequestInit,
+  tiempoLimiteMs = TIEMPO_LIMITE_MS,
+): Promise<T> {
   let response: Response
   try {
     response = await fetch(ruta, {
       ...init,
-      signal: AbortSignal.timeout(TIEMPO_LIMITE_MS),
+      signal: AbortSignal.timeout(tiempoLimiteMs),
     })
   } catch (error) {
     const causa = error instanceof Error ? error.message : String(error)
@@ -52,10 +56,18 @@ export function obtener<T>(ruta: string): Promise<T> {
   return pedir<T>(ruta)
 }
 
-export function enviar<T>(ruta: string, cuerpo: unknown): Promise<T> {
-  return pedir<T>(ruta, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(cuerpo),
-  })
+export function enviar<T>(
+  ruta: string,
+  cuerpo: unknown,
+  tiempoLimiteMs?: number,
+): Promise<T> {
+  return pedir<T>(
+    ruta,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo),
+    },
+    tiempoLimiteMs,
+  )
 }

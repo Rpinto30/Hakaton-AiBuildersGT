@@ -61,8 +61,16 @@ export interface CeldaCruce {
   tasa_promocion: number
 }
 
+/** Una consulta que el agente le hizo a la base para poder responder. */
+export interface ConsultaDelAgente {
+  herramienta: string
+  argumentos: string
+  resultado: Record<string, unknown>
+}
+
 export interface RespuestaChat {
   respuesta: string
   con_ia: boolean
   cifras: FilaAgregada[]
+  consultas: ConsultaDelAgente[]
 }

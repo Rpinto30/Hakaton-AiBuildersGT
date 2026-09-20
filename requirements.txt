@@ -9,3 +9,8 @@ psycopg[binary]==3.3.6
 # API (api/). uvicorn es el servidor: uvicorn api.main:app --reload
 fastapi==0.141.1
 uvicorn==0.53.0
+
+# Agente (agente/). openai es el SDK oficial; python-dotenv permite probar el
+# agente desde la terminal (python -m agente "...") leyendo el mismo .env.
+openai==3.16.2
+python-dotenv==1.2.3

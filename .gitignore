@@ -6,3 +6,9 @@ __pycache__/
 datos/crudo/
 datos/procesado/
 *.parcial
+
+# Frontend (React-UI)
+node_modules/
+React-UI/dist/
+React-UI/.tmp/
+*.tsbuildinfo

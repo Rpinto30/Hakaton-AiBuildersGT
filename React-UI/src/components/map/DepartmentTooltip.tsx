@@ -20,7 +20,7 @@ export function departmentTooltipHtml(
   const name = `<strong>${escapeHtml(nombre)}</strong>`
 
   if (!data) {
-    return `<div class="tooltip-body">${name}<div class="tooltip-muted">Sin datos en el JSON</div></div>`
+    return `<div class="tooltip-body">${name}<div class="tooltip-muted">Sin datos</div></div>`
   }
 
   const rows = topMetrics(data)
@@ -29,7 +29,7 @@ export function departmentTooltipHtml(
         `<div class="tooltip-row"><span class="tooltip-label">${escapeHtml(
           formatMetricLabel(key),
         )}</span><span class="tooltip-value">${escapeHtml(
-          formatValue(value),
+          formatValue(value, key),
         )}</span></div>`,
     )
     .join('')

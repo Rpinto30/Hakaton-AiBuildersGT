@@ -40,6 +40,18 @@ export function useChat(): ChatState {
         content: response.respuesta,
       }
       setMessages((prev) => [...prev, assistantMessage])
+    } catch (causa) {
+      // Si la API no responde se dice, en vez de dejar la burbuja escribiendo
+      // para siempre o inventar una respuesta.
+      const detalle = causa instanceof Error ? causa.message : String(causa)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `No pude consultar los datos: ${detalle}`,
+        },
+      ])
     } finally {
       setIsTyping(false)
     }

@@ -1,72 +1,110 @@
-import { useMemo } from 'react'
-import raw from '@resources/departamentos-data.example.json'
+import { useEffect, useState } from 'react'
 
-import { parseDepartmentsJson } from '@/features/departments'
-import type { DepartmentData } from '@/features/departments'
+import { obtener } from '@/features/api'
+import type {
+  CeldaCruce,
+  RespuestaAgregados,
+  Resumen,
+} from '@/features/api'
 
 export interface DashboardRow {
   nombre: string
-  poblacion: number
-  area: number
-  densidad: number
-  educativo: number
-  pobreza: number
+  inscripciones: number
+  promocion: number
+  noPromocion: number
+  retiro: number
+  repitencia: number
 }
 
-export interface DashboardKpis {
-  departamentos: number
-  poblacionTotal: number
-  areaTotal: number
-  densidadMedia: number
-  educativoMedia: number
-  pobrezaMedia: number
+export interface DistribucionRow {
+  etiqueta: string
+  total: number
+  promocion: number
 }
 
-function num(metrics: DepartmentData['metricas'], key: string): number {
-  const value = metrics[key]
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+export interface DashboardState {
+  loading: boolean
+  error: string | null
+  resumen: Resumen | null
+  rows: DashboardRow[]
+  porNivel: DistribucionRow[]
+  porSector: DistribucionRow[]
+  porArea: DistribucionRow[]
+  cruce: CeldaCruce[]
 }
 
-export function useDashboardData() {
-  return useMemo(() => {
-    const departments = parseDepartmentsJson(raw)
-    const rows: DashboardRow[] = departments.map((dept) => ({
-      nombre: dept.nombre,
-      poblacion: num(dept.metricas, 'poblacion_2024'),
-      area: num(dept.metricas, 'area_km2'),
-      densidad: num(dept.metricas, 'densidad_hab_per_km2'),
-      educativo: num(dept.metricas, 'indice_educativo'),
-      pobreza: num(dept.metricas, 'indice_pobreza'),
-    }))
+const VACIO: Omit<DashboardState, 'loading' | 'error'> = {
+  resumen: null,
+  rows: [],
+  porNivel: [],
+  porSector: [],
+  porArea: [],
+  cruce: [],
+}
 
-    const departamentos = rows.length
-    const poblacionTotal = rows.reduce((sum, row) => sum + row.poblacion, 0)
-    const areaTotal = rows.reduce((sum, row) => sum + row.area, 0)
-    const densidadMedia =
-      departamentos === 0
-        ? 0
-        : rows.reduce((sum, row) => sum + row.densidad, 0) / departamentos
-    const educativoMedia =
-      departamentos === 0
-        ? 0
-        : rows.reduce((sum, row) => sum + row.educativo, 0) / departamentos
-    const pobrezaMedia =
-      departamentos === 0
-        ? 0
-        : rows.reduce((sum, row) => sum + row.pobreza, 0) / departamentos
+function aDistribucion(respuesta: RespuestaAgregados): DistribucionRow[] {
+  return respuesta.filas.map((fila) => ({
+    etiqueta: fila.etiqueta,
+    total: fila.total,
+    promocion: fila.tasa_promocion,
+  }))
+}
 
-    const byPoblacion = [...rows].sort((a, b) => b.poblacion - a.poblacion)
-    const byPobreza = [...rows].sort((a, b) => b.pobreza - a.pobreza)
+/**
+ * Todo el dashboard sale de las tablas `agg_*` vía la API. No hay cálculos en
+ * el navegador: si una cifra aparece aquí, está en la base con ese mismo valor.
+ */
+export function useDashboardData(): DashboardState {
+  const [estado, setEstado] = useState<DashboardState>({
+    loading: true,
+    error: null,
+    ...VACIO,
+  })
 
-    const kpis: DashboardKpis = {
-      departamentos,
-      poblacionTotal,
-      areaTotal,
-      densidadMedia,
-      educativoMedia,
-      pobrezaMedia,
+  useEffect(() => {
+    let vigente = true
+
+    Promise.all([
+      obtener<Resumen>('/api/resumen'),
+      obtener<RespuestaAgregados>('/api/agregados/departamento'),
+      obtener<RespuestaAgregados>('/api/agregados/nivel'),
+      obtener<RespuestaAgregados>('/api/agregados/sector'),
+      obtener<RespuestaAgregados>('/api/agregados/area'),
+      obtener<CeldaCruce[]>('/api/departamento-nivel'),
+    ])
+      .then(([resumen, departamentos, nivel, sector, area, cruce]) => {
+        if (!vigente) return
+        setEstado({
+          loading: false,
+          error: null,
+          resumen,
+          rows: departamentos.filas.map((fila) => ({
+            nombre: fila.etiqueta,
+            inscripciones: fila.total,
+            promocion: fila.tasa_promocion,
+            noPromocion: fila.tasa_no_promocion,
+            retiro: fila.tasa_retiro,
+            repitencia: fila.tasa_repitencia,
+          })),
+          porNivel: aDistribucion(nivel),
+          porSector: aDistribucion(sector),
+          porArea: aDistribucion(area),
+          cruce,
+        })
+      })
+      .catch((causa: unknown) => {
+        if (!vigente) return
+        setEstado({
+          loading: false,
+          error: causa instanceof Error ? causa.message : String(causa),
+          ...VACIO,
+        })
+      })
+
+    return () => {
+      vigente = false
     }
-
-    return { rows, kpis, byPoblacion, byPobreza }
   }, [])
+
+  return estado
 }

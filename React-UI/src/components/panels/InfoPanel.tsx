@@ -31,8 +31,8 @@ export function InfoPanel({ selected, data }: InfoPanelProps) {
             Mapa interactivo
           </h2>
           <p className="text-[15px] leading-relaxed text-volc-500">
-            Haz clic en uno de los 22 departamentos para ver sus cifras del JSON
-            de datos.
+            Haz clic en uno de los 22 departamentos para ver sus cifras reales
+            del censo educativo 2024.
           </p>
         </div>
       </section>
@@ -72,7 +72,7 @@ export function InfoPanel({ selected, data }: InfoPanelProps) {
 
         <div className="px-5 pt-3">
           {data ? (
-            <Badge>Con datos en el JSON</Badge>
+            <Badge>Datos del censo 2024</Badge>
           ) : (
             <Badge className="bg-petate-300 text-volc-700">Sin datos</Badge>
           )}
@@ -91,7 +91,7 @@ export function InfoPanel({ selected, data }: InfoPanelProps) {
                       {formatMetricLabel(key)}
                     </dt>
                     <dd className="mt-1 font-display text-2xl font-semibold leading-none text-jade-900">
-                      {formatValue(value)}
+                      {formatValue(value, key)}
                     </dd>
                   </div>
                 ))}
@@ -108,7 +108,7 @@ export function InfoPanel({ selected, data }: InfoPanelProps) {
                         {formatMetricLabel(key)}
                       </dt>
                       <dd className="font-display text-sm font-semibold text-jade-900">
-                        {formatValue(value)}
+                        {formatValue(value, key)}
                       </dd>
                     </div>
                   ))}
@@ -124,7 +124,7 @@ export function InfoPanel({ selected, data }: InfoPanelProps) {
                 Sin datos para {selected}
               </p>
               <p className="text-[15px] leading-relaxed text-volc-500">
-                Este departamento aún no tiene cifras en el JSON cargado.
+                La API no devolvió cifras para este departamento.
               </p>
             </div>
           )}

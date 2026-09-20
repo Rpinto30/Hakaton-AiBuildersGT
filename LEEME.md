@@ -52,6 +52,10 @@ Si eso salió bien:
 CALL refresh_agregados();
 ```
 
+`refresh_agregados()` tarda ~20 segundos: es la única vez que se recorren los
+4.3 M de microdatos. Deja listas las seis tablas `agg_*` más `agg_resumen`, que
+es lo único que la API consulta.
+
 ## 5. Validar
 
 ```
@@ -72,7 +76,31 @@ sale, toda la cadena desde el `.xlsx` hasta Postgres está correcta.
 | `agg_sector` | 4 | vista general |
 | `agg_area` | 2 | vista general |
 | `agg_departamento_nivel` | ~110 | la desagregación que pide el reto |
+| `agg_resumen` | 1 | KPIs nacionales del dashboard |
 
 Las cinco primeras `agg_*` comparten la misma forma: `clave`, `etiqueta`,
 `padre`, `orden`, los conteos y las tasas. La API puede servirlas con un solo
 endpoint parametrizado.
+
+## Atajo: cargar con el script
+
+Los pasos 2 y 4 se pueden hacer de una sola vez, sin entrar a `psql`:
+
+```bash
+python scripts/load_csv.py datos/procesado/inscripciones.csv
+```
+
+Valida el encabezado, hace el `COPY`, llama a `refresh_agregados()` y contrasta
+el resultado. Todo en una transacción: si algo no cuadra, revierte y la base
+queda como estaba. Necesita el esquema ya creado (pasos 1 y 3).
+
+## Conectarse desde fuera del contenedor
+
+Usa **`127.0.0.1`, no `localhost`**. El `docker-compose.yml` publica el puerto
+solo en IPv4, y resolver `localhost` intenta primero `::1`, donde no hay nadie
+escuchando: cada conexión espera a que venza el timeout antes de reintentar.
+Medido en este proyecto: 130 s contra 0.013 s.
+
+```
+postgresql://educacion:TU_CONTRASEÑA@127.0.0.1:5432/educacion
+```

@@ -31,7 +31,7 @@
 --   orden    para ordenar de forma natural (Preprimaria antes que Primaria)
 -- -----------------------------------------------------------------------------
 DROP TABLE IF EXISTS agg_departamento, agg_nivel, agg_sector, agg_area,
-                     agg_municipio, agg_departamento_nivel CASCADE;
+                     agg_municipio, agg_departamento_nivel, agg_resumen CASCADE;
 
 CREATE TABLE agg_departamento (
     clave         TEXT    PRIMARY KEY,
@@ -79,6 +79,39 @@ CREATE TABLE agg_departamento_nivel (
         (ROUND(100.0 * promovidos / NULLIF(total, 0), 2)) STORED,
     PRIMARY KEY (departamento_codigo, nivel)
 );
+
+-- -----------------------------------------------------------------------------
+-- Resumen nacional: una sola fila con los KPIs de portada.
+--
+-- Existe para que la API no tenga que contar municipios ni escuelas distintas
+-- al vuelo: ese count(DISTINCT) sobre los 4.3 M de filas tarda ~10 segundos y
+-- es exactamente lo que estas tablas están para evitar.
+-- -----------------------------------------------------------------------------
+CREATE TABLE agg_resumen (
+    fila_unica    BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (fila_unica),
+    inscripciones INTEGER NOT NULL,
+    departamentos INTEGER NOT NULL,
+    municipios    INTEGER NOT NULL,
+    escuelas      INTEGER NOT NULL,
+    promovidos    INTEGER NOT NULL,
+    no_promovidos INTEGER NOT NULL,
+    retirados     INTEGER NOT NULL,
+    repitentes    INTEGER NOT NULL,
+    graduandos    INTEGER NOT NULL,
+
+    tasa_promocion    NUMERIC(5,2) GENERATED ALWAYS AS
+        (ROUND(100.0 * promovidos    / NULLIF(inscripciones, 0), 2)) STORED,
+    tasa_no_promocion NUMERIC(5,2) GENERATED ALWAYS AS
+        (ROUND(100.0 * no_promovidos / NULLIF(inscripciones, 0), 2)) STORED,
+    tasa_retiro       NUMERIC(5,2) GENERATED ALWAYS AS
+        (ROUND(100.0 * retirados     / NULLIF(inscripciones, 0), 2)) STORED,
+    tasa_repitencia   NUMERIC(5,2) GENERATED ALWAYS AS
+        (ROUND(100.0 * repitentes    / NULLIF(inscripciones, 0), 2)) STORED
+);
+
+COMMENT ON COLUMN agg_resumen.escuelas IS
+    'Establecimientos distintos por cod_establecimiento_base. Contar el código '
+    'completo inflaría la cifra porque su 4.º segmento es el nivel educativo.';
 
 -- =============================================================================
 -- Reconstruye todos los agregados desde `inscripciones`.
@@ -140,5 +173,22 @@ BEGIN
            count(*) FILTER (WHERE resultado_final IN ('Retirado', 'Retirado Definitivo'))
     FROM inscripciones
     GROUP BY departamento_codigo, departamento, nivel_codigo, COALESCE(nivel, '(sin dato)');
+
+    -- El resumen se arma en una sola pasada sobre los microdatos. Es la única
+    -- vez que se recorren los 4.3 M de filas, y pasa aquí y no en la API.
+    TRUNCATE agg_resumen;
+    INSERT INTO agg_resumen
+        (inscripciones, departamentos, municipios, escuelas,
+         promovidos, no_promovidos, retirados, repitentes, graduandos)
+    SELECT count(*),
+           count(DISTINCT departamento_codigo),
+           count(DISTINCT municipio_codigo),
+           count(DISTINCT cod_establecimiento_base),
+           count(*) FILTER (WHERE resultado_final = 'Promovido'),
+           count(*) FILTER (WHERE resultado_final = 'No promovido'),
+           count(*) FILTER (WHERE resultado_final IN ('Retirado', 'Retirado Definitivo')),
+           count(*) FILTER (WHERE repitente = 'Si'),
+           count(*) FILTER (WHERE graduando = 'Si es graduando')
+    FROM inscripciones;
 END;
 $$;

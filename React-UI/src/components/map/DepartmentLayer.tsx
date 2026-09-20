@@ -114,6 +114,15 @@ export function DepartmentLayer({ geojson, joined }: DepartmentLayerProps) {
   const nameByLayer = useMemo(() => new WeakMap<LeafletLayer, string>(), [])
   const layerRef = useRef<LeafletGeoJSON | null>(null)
 
+  // Los tooltips se enlazan una sola vez, en onEachFeature. Como las cifras
+  // llegan de la API después del primer render, hay que recrear la capa cuando
+  // aparecen; si no, los tooltips se quedan diciendo "Sin datos" para siempre
+  // aunque el relleno sí se haya actualizado.
+  const conDatos = useMemo(
+    () => joined.filter((entry) => entry.data !== undefined).length,
+    [joined],
+  )
+
   const styleFor = useCallback(
     (nombre: string): PathOptions => {
       const { hovered: currentHovered, selected: currentSelected, showDataLayer: useData } =
@@ -187,7 +196,7 @@ export function DepartmentLayer({ geojson, joined }: DepartmentLayerProps) {
 
   return (
     <GeoJSON
-      key={showTooltips ? 'with-tooltips' : 'without-tooltips'}
+      key={`${showTooltips ? 'con' : 'sin'}-tooltips-${conDatos}`}
       ref={(element) => {
         layerRef.current = element
       }}

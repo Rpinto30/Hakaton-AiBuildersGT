@@ -5,14 +5,53 @@ Guatemala: 4,298,887 inscripciones escolares publicadas como códigos numéricos
 
 El proyecto tiene tres componentes:
 
-| Componente | Estado | Qué hace |
-|---|---|---|
-| **Ingesta** (`ingesta/`) | funcionando | Lee los 23 `.xlsx`, los decodifica y produce CSVs verificados |
-| **Backend** (`backend/`) | de otro integrante | API FastAPI sobre Postgres + PostGIS |
-| **Frontend** (`frontend/`) | de otro integrante | Dashboard React con mapa GeoJSON |
+| Componente | Qué hace |
+|---|---|
+| **Ingesta** (`ingesta/`) | Lee los 23 `.xlsx`, los decodifica y produce CSVs verificados |
+| **Base de datos** (`tablas/`, `docker-compose.yml`) | Postgres 17 + PostGIS; agregados precalculados |
+| **API** (`api/`) | FastAPI: sirve los agregados y responde el chat |
+| **Frontend** (`React-UI/`) | React + Leaflet: mapa coroplético, dashboard y chat |
 
-Este README cubre la **ingesta**. Las decisiones técnicas y el porqué de cada
-una están en [`docs/decisiones.md`](docs/decisiones.md).
+Las decisiones técnicas y el porqué de cada una están en
+[`docs/decisiones.md`](docs/decisiones.md).
+
+## Puesta en marcha completa
+
+```bash
+# 1. Entorno de Python y dependencias
+python -m venv .venv
+.venv/Scripts/activate          # Windows · source .venv/bin/activate en Unix
+pip install -r requirements.txt
+
+# 2. Datos: descargar, procesar y cargar
+python -m ingesta.descargar                    # ~225 MB del S3 público
+python -m ingesta                              # ~7 min -> datos/procesado/
+cp env.example .env                            # y cambia la contraseña
+docker compose up -d db
+docker exec -i educacion-db psql -U educacion -d educacion < tablas/01_schema.sql
+docker exec -i educacion-db psql -U educacion -d educacion < tablas/03_agregados.sql
+python scripts/load_csv.py datos/procesado/inscripciones.csv   # ~3 min
+docker exec -i educacion-db psql -U educacion -d educacion < tablas/02_indices.sql
+docker exec -i educacion-db psql -U educacion -d educacion < tablas/04_validacion.sql
+
+# 3. Levantar API + frontend
+cd React-UI
+npm install
+npm run dev
+```
+
+`npm run dev` levanta **las dos cosas**: la API en <http://127.0.0.1:8000> y el
+frontend en <http://localhost:5173>. Las rutas `/api/*` las reenvía el proxy de
+Vite, así que no hace falta configurar CORS ni URLs.
+
+El detalle paso a paso de la carga a Postgres está en [`LEEME.md`](LEEME.md).
+
+> Si el dashboard dice que no pudo cargar las cifras, es que la API o la base no
+> están arriba. `curl http://127.0.0.1:8000/health` lo confirma en un segundo.
+
+---
+
+El resto de este README cubre la **ingesta**.
 
 ---
 
